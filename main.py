@@ -6,7 +6,10 @@
 import pygame                 # Game engine
 import sys                    # System functions
 import os                     # File system operations
+import math  			   # For sine animation
 from deck import Deck         # Custom Deck and Card classes
+
+
 
 # --------- Game Window Setup ---------
 pygame.init()
@@ -14,6 +17,10 @@ WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Blackjack")
 font = pygame.font.SysFont("Arial", 24)
+
+# --------- Load Chip Image ---------
+chip_image = pygame.image.load(os.path.join("assets", "chips", "chip_25.png")).convert_alpha()
+chip_image = pygame.transform.scale(chip_image, (40, 40))
 
 # --------- Load Card Back Image ---------
 card_back = pygame.image.load(os.path.join("assets", "cards", "png", "back.png")).convert_alpha()
@@ -51,6 +58,19 @@ def draw_hand(hand, y, hide_first=False):
         else:
             card_surface = load_png_card(card.image_path)
             draw_card_with_border(card_surface, x, y)
+            
+# --------- Draw Chip Stack ---------
+def draw_chip_stack(x, y, bet_amount, tick):
+    """
+    Draws a stack of chips representing the current bet.
+    A subtle bounce animation is added for visual effect.
+    """
+    chips = bet_amount // 25  # One chip per $25 bet
+    for i in range(chips):
+        # Simple bounce animation: chips rise and fall
+        offset = int(5 * math.sin((tick / 200) + (i * 0.5)))
+        screen.blit(chip_image, (x, y - i * 12 + offset))
+
 
 # --------- Calculate Blackjack Hand Value ---------
 def calculate_hand_value(hand):
@@ -87,6 +107,10 @@ def reset_game():
     game_over = False
     winner = ""
     round_started = True  # Round has officially started
+    
+# --------- Initial Animation Setup ---------
+tick = 0  # For animation timing
+
 
 # --------- Initial Chip Setup ---------
 player_chips = 500        # Starting chips
@@ -111,6 +135,7 @@ bet_minus_button = pygame.Rect(570, 90, 40, 30)
 running = True
 while running:
     screen.fill((0, 128, 0))  # Green felt background
+    tick += 1 #Increment Animation tick
 
     # Draw hands if the round has started
     if round_started:
@@ -128,7 +153,8 @@ while running:
     # Display chip and bet info
     draw_text(f"Chips: ${player_chips}", 570, 20)
     draw_text(f"Bet: ${player_bet}", 570, 60)
-
+    draw_chip_stack(600, 250, player_bet, tick)
+    
     # Bet adjustment buttons (only if round hasn’t started)
     if not round_started:
         draw_button("+", bet_plus_button, (150, 200, 255))
