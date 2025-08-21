@@ -26,6 +26,10 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 - **Chip management** with win/loss tracking
 - **Bankruptcy protection** - game ends when chips run out
 
+### Statistics
+- **In-game statistics panel** showing wins, losses, pushes, busts, and chips won/lost
+- **Press `E`** to export statistics to `stats.txt` and `stats.json`
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -102,5 +106,5 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 - [ ] Split pairs option
 - [ ] Multiple betting denominations
 - [ ] Sound effects and music
-- [ ] Statistics tracking
+- [x] Statistics tracking
 - [ ] Multiple deck options
