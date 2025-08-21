@@ -7,6 +7,7 @@ import pygame                 # Game engine
 import sys                    # System functions
 import os                     # File system operations
 import math  			   # For sine animation
+import json                   # For exporting statistics
 from deck import Deck         # Custom Deck and Card classes
 
 
@@ -96,6 +97,26 @@ def draw_button(text, rect, color, text_color=(0, 0, 0)):
     pygame.draw.rect(screen, color, rect)
     draw_text(text, rect[0] + 10, rect[1] + 10, text_color)
 
+# --------- Draw Statistics Panel ---------
+def draw_stats_panel(x, y):
+    panel = pygame.Rect(x, y, 200, 140)
+    pygame.draw.rect(screen, (0, 100, 0), panel)
+    pygame.draw.rect(screen, (255, 255, 255), panel, 2)
+    draw_text(f"Wins: {stats['wins']}", x + 10, y + 10)
+    draw_text(f"Losses: {stats['losses']}", x + 10, y + 30)
+    draw_text(f"Pushes: {stats['pushes']}", x + 10, y + 50)
+    draw_text(f"Busts: {stats['busts']}", x + 10, y + 70)
+    draw_text(f"Chips Won: {stats['chips_won']}", x + 10, y + 90)
+    draw_text(f"Chips Lost: {stats['chips_lost']}", x + 10, y + 110)
+
+# --------- Export Statistics ---------
+def export_stats():
+    with open("stats.json", "w") as jf:
+        json.dump(stats, jf, indent=4)
+    with open("stats.txt", "w") as tf:
+        for key, value in stats.items():
+            tf.write(f"{key}: {value}\n")
+
 # --------- Reset Game State ---------
 def reset_game():
     """Prepares the next round, keeping chips and bet"""
@@ -116,6 +137,16 @@ tick = 0  # For animation timing
 player_chips = 500        # Starting chips
 player_bet = 25           # Initial bet
 round_started = False     # Round begins after betting
+
+# --------- Statistics Tracking ---------
+stats = {
+    "wins": 0,
+    "losses": 0,
+    "pushes": 0,
+    "busts": 0,
+    "chips_won": 0,
+    "chips_lost": 0,
+}
 
 # --------- Game State Flags ---------
 game_over = False         # Whether the round has ended
@@ -154,6 +185,7 @@ while running:
     draw_text(f"Chips: ${player_chips}", 570, 20)
     draw_text(f"Bet: ${player_bet}", 570, 60)
     draw_chip_stack(600, 250, player_bet, tick)
+    draw_stats_panel(10, 20)
     
     # Bet adjustment buttons (only if round hasn’t started)
     if not round_started:
@@ -175,6 +207,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False  # Exit game
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_e:
+                export_stats()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             # Bet adjustment (only before round starts)
@@ -193,6 +228,9 @@ while running:
                     if calculate_hand_value(player_hand) > 21: #Player Busts
                         winner = "Bust! Dealer Wins."
                         player_chips -= player_bet #Player loses bet
+                        stats["busts"] += 1
+                        stats["losses"] += 1
+                        stats["chips_lost"] += player_bet
                         game_over = True
                         player_turn = False
 
@@ -205,11 +243,16 @@ while running:
                     if dealer_value > 21 or player_value > dealer_value: #Dealer Busts or Player Beats Dealer
                         winner = "Player Wins!"
                         player_chips += player_bet #player wins bet
+                        stats["wins"] += 1
+                        stats["chips_won"] += player_bet
                     elif player_value == dealer_value: #Player and Dealer Tie
                         winner = "Push! It's a tie."
+                        stats["pushes"] += 1
                     else: #Player Loses
                         winner = "Dealer Wins."
                         player_chips -= player_bet #player loses bet
+                        stats["losses"] += 1
+                        stats["chips_lost"] += player_bet
                     game_over = True
 
             # Restart after game over
