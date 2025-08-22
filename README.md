@@ -1,6 +1,6 @@
 # Blackjack Pygame
 
-A fully-featured **Blackjack** game built with Python and Pygame, featuring beautiful card graphics, animated chip betting, and authentic casino-style gameplay.
+A fully-featured **Blackjack** game built with Python and Pygame, featuring beautiful card graphics, animated chip betting, and authentic casino-style gameplay. The game logic is organized around a `Game` class that manages all state and rendering.
 
 ![Blackjack Game](https://img.shields.io/badge/Python-3.11+-blue.svg) ![Pygame](https://img.shields.io/badge/Pygame-Required-green.svg)
 
@@ -70,7 +70,7 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 ```
 blackjack_pygame/
 │
-├── main.py              # Main game loop and UI logic
+├── main.py              # Game class and minimal launcher
 ├── deck.py              # Card and Deck classes
 ├── README.md            # This file
 ├── .gitignore          # Git ignore file
@@ -82,7 +82,7 @@ blackjack_pygame/
 
 ## 🛠️ Technical Details
 
-- **Architecture:** Object-oriented design with separate Card and Deck classes
+- **Architecture:** Object-oriented design with separate Card, Deck, and central Game classes that handle deck management, player and dealer hands, chip tracking, and UI elements
 - **Graphics:** Pygame-based rendering with custom drawing functions
 - **Game Logic:** Proper blackjack mathematics with edge case handling
 - **Animation:** Smooth chip stack animations using sine wave functions
