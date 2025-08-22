@@ -18,6 +18,7 @@ import sys                    # System functions
 import pygame                 # Game engine
 
 from deck import Deck         # Custom Deck and Card classes
+from basic_strategy import suggest_move
 
 
 class Game:
@@ -75,8 +76,10 @@ class Game:
         self.restart_button = pygame.Rect(500, 530, 120, 40)
         self.bet_plus_button = pygame.Rect(630, 90, 40, 30)
         self.bet_minus_button = pygame.Rect(570, 90, 40, 30)
+        self.hint_button = pygame.Rect(380, 530, 100, 40)
 
         self.running = True
+        self.hints_enabled = False
 
     # --------- Load and Scale Card Image ---------
     def load_png_card(self, path: str, size: tuple[int, int] = (80, 120)):
@@ -146,8 +149,10 @@ class Game:
         self.screen.blit(surface, (x, y))
 
     # --------- Display Button ---------
-    def draw_button(self, text, rect, color, text_color=(0, 0, 0)):
+    def draw_button(self, text, rect, color, text_color=(0, 0, 0), outline=False):
         pygame.draw.rect(self.screen, color, rect)
+        if outline:
+            pygame.draw.rect(self.screen, (255, 215, 0), rect, 3)
         self.draw_text(text, rect[0] + 10, rect[1] + 10, text_color)
 
     # --------- Draw Statistics Panel ---------
@@ -189,7 +194,9 @@ class Game:
             if event.key == pygame.K_e:
                 self.export_stats()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if not self.round_started:
+            if self.hint_button.collidepoint(event.pos):
+                self.hints_enabled = not self.hints_enabled
+            elif not self.round_started:
                 if self.bet_plus_button.collidepoint(event.pos) and self.player_bet + 25 <= self.player_chips:
                     self.player_bet += 25
                 elif self.bet_minus_button.collidepoint(event.pos) and self.player_bet - 25 >= 25:
@@ -259,9 +266,20 @@ class Game:
             self.draw_button("+", self.bet_plus_button, (150, 200, 255))
             self.draw_button("-", self.bet_minus_button, (150, 200, 255))
 
+        suggestion = None
+        if self.hints_enabled and self.round_started and not self.game_over and self.player_turn:
+            suggestion = suggest_move(self.player_hand, self.dealer_hand[1])
+
         if self.round_started and not self.game_over:
-            self.draw_button("Hit", self.hit_button, (200, 200, 200))
-            self.draw_button("Stand", self.stand_button, (200, 200, 200))
+            hit_outline = suggestion == "Hit"
+            stand_outline = suggestion == "Stand"
+            self.draw_button("Hit", self.hit_button, (200, 200, 200), outline=hit_outline)
+            self.draw_button("Stand", self.stand_button, (200, 200, 200), outline=stand_outline)
+            if suggestion:
+                self.draw_text(f"Hint: {suggestion}", 360, 490, (255, 255, 0))
+
+        hint_color = (150, 200, 255) if not self.hints_enabled else (255, 215, 0)
+        self.draw_button("Hint", self.hint_button, hint_color)
 
         if self.game_over:
             self.draw_text(self.winner, 500, 370, (255, 215, 0))
