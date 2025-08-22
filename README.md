@@ -16,6 +16,7 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 ### Visual & Interactive Elements
 - **High-quality card graphics** with realistic card designs
 - **Animated chip stacks** with subtle bounce effects
+- **Card dealing animations** using lightweight sprite interpolation
 - **Card shadows and borders** for enhanced visual appeal
 - **Hidden dealer card** during player's turn for authentic gameplay
 - **Intuitive button controls** for hit, stand, and betting
@@ -86,6 +87,8 @@ blackjack_pygame/
 - **Graphics:** Pygame-based rendering with custom drawing functions
 - **Game Logic:** Proper blackjack mathematics with edge case handling
 - **Animation:** Smooth chip stack animations using sine wave functions
+- **Dealing:** Cards move from the deck to hands through a simple sprite system. Keep the
+  number of simultaneous animations modest to avoid performance drops on slower hardware.
 - **State Management:** Clean game state handling for rounds and betting
 
 ## 🎨 Assets

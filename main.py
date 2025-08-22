@@ -11,6 +11,32 @@ import json                   # For exporting statistics
 from deck import Deck         # Custom Deck and Card classes
 
 
+# --------- Animated Card Sprite ---------
+class CardSprite:
+    """Simple sprite to move a card surface from a start to end position."""
+
+    def __init__(self, card, surface, start_pos, end_pos, target_hand, speed=15):
+        self.card = card
+        self.surface = surface
+        self.x, self.y = start_pos
+        self.end_x, self.end_y = end_pos
+        self.target_hand = target_hand
+        self.speed = speed
+
+    def update(self):
+        dx = self.end_x - self.x
+        dy = self.end_y - self.y
+        dist = math.hypot(dx, dy)
+        if dist <= self.speed or dist == 0:
+            self.x, self.y = self.end_x, self.end_y
+            draw_card_with_border(self.surface, int(self.x), int(self.y))
+            return True
+        self.x += self.speed * dx / dist
+        self.y += self.speed * dy / dist
+        draw_card_with_border(self.surface, int(self.x), int(self.y))
+        return False
+
+
 
 # --------- Game Window Setup ---------
 pygame.init()
@@ -120,14 +146,17 @@ def export_stats():
 # --------- Reset Game State ---------
 def reset_game():
     """Prepares the next round, keeping chips and bet"""
-    global deck, player_hand, dealer_hand, player_turn, game_over, winner, round_started
+    global deck, player_hand, dealer_hand, player_turn, game_over, winner, round_started, deal_queue, dealer_playing
     deck = Deck()
-    player_hand = [deck.deal(), deck.deal()]
-    dealer_hand = [deck.deal(), deck.deal()]
+    player_hand = []
+    dealer_hand = []
     player_turn = True
     game_over = False
     winner = ""
     round_started = True  # Round has officially started
+    dealer_playing = False
+    deal_queue = ["player", "dealer", "player", "dealer"]
+    start_next_deal()
     
 # --------- Initial Animation Setup ---------
 tick = 0  # For animation timing
@@ -147,6 +176,51 @@ stats = {
     "chips_won": 0,
     "chips_lost": 0,
 }
+
+# --------- Animation Helpers ---------
+animating_cards = []  # Active CardSprite objects
+deal_queue = []       # Pending deals ('player' or 'dealer')
+dealer_playing = False
+
+
+def start_next_deal():
+    """Begin the next card animation if queued."""
+    if deal_queue and not animating_cards:
+        target = deal_queue.pop(0)
+        card = deck.deal()
+        if not card:
+            return
+        start_pos = (WIDTH // 2 - 40, HEIGHT // 2 - 60)
+        if target == "player":
+            index = len(player_hand) + sum(1 for s in animating_cards if s.target_hand == "player")
+            end_pos = (100 + index * 100, 400)
+            surface = load_png_card(card.image_path)
+        else:
+            index = len(dealer_hand) + sum(1 for s in animating_cards if s.target_hand == "dealer")
+            end_pos = (100 + index * 100, 100)
+            surface = card_back if index == 0 and player_turn else load_png_card(card.image_path)
+        animating_cards.append(CardSprite(card, surface, start_pos, end_pos, target))
+
+
+def determine_winner():
+    """Evaluate final hands and update statistics."""
+    global winner, player_chips, game_over, stats
+    player_value = calculate_hand_value(player_hand)
+    dealer_value = calculate_hand_value(dealer_hand)
+    if dealer_value > 21 or player_value > dealer_value:
+        winner = "Player Wins!"
+        player_chips += player_bet
+        stats["wins"] += 1
+        stats["chips_won"] += player_bet
+    elif player_value == dealer_value:
+        winner = "Push! It's a tie."
+        stats["pushes"] += 1
+    else:
+        winner = "Dealer Wins."
+        player_chips -= player_bet
+        stats["losses"] += 1
+        stats["chips_lost"] += player_bet
+    game_over = True
 
 # --------- Game State Flags ---------
 game_over = False         # Whether the round has ended
@@ -168,10 +242,32 @@ while running:
     screen.fill((0, 128, 0))  # Green felt background
     tick += 1 #Increment Animation tick
 
-    # Draw hands if the round has started
+    # Draw hands and update animations if the round has started
     if round_started:
         draw_hand(player_hand, 400)
         draw_hand(dealer_hand, 100, hide_first=(player_turn and not game_over))
+        for sprite in animating_cards[:]:
+            finished = sprite.update()
+            if finished:
+                if sprite.target_hand == "player":
+                    player_hand.append(sprite.card)
+                    if calculate_hand_value(player_hand) > 21:
+                        winner = "Bust! Dealer Wins."
+                        player_chips -= player_bet
+                        stats["busts"] += 1
+                        stats["losses"] += 1
+                        stats["chips_lost"] += player_bet
+                        game_over = True
+                        player_turn = False
+                else:
+                    dealer_hand.append(sprite.card)
+                    if dealer_playing and calculate_hand_value(dealer_hand) < 17:
+                        deal_queue.append("dealer")
+                    elif dealer_playing and calculate_hand_value(dealer_hand) >= 17:
+                        dealer_playing = False
+                        determine_winner()
+                animating_cards.remove(sprite)
+                start_next_deal()
 
     # Calculate and display scores
     if round_started:
@@ -223,37 +319,18 @@ while running:
 
             # During active round
             elif round_started and not game_over:
-                if hit_button.collidepoint(event.pos):
-                    player_hand.append(deck.deal())
-                    if calculate_hand_value(player_hand) > 21: #Player Busts
-                        winner = "Bust! Dealer Wins."
-                        player_chips -= player_bet #Player loses bet
-                        stats["busts"] += 1
-                        stats["losses"] += 1
-                        stats["chips_lost"] += player_bet
-                        game_over = True
-                        player_turn = False
+                if hit_button.collidepoint(event.pos) and player_turn and not animating_cards and not deal_queue:
+                    deal_queue.append("player")
+                    start_next_deal()
 
-                elif stand_button.collidepoint(event.pos):
+                elif stand_button.collidepoint(event.pos) and player_turn and not animating_cards and not deal_queue:
                     player_turn = False
-                    while calculate_hand_value(dealer_hand) < 17:
-                        dealer_hand.append(deck.deal())
-                    player_value = calculate_hand_value(player_hand)
-                    dealer_value = calculate_hand_value(dealer_hand)
-                    if dealer_value > 21 or player_value > dealer_value: #Dealer Busts or Player Beats Dealer
-                        winner = "Player Wins!"
-                        player_chips += player_bet #player wins bet
-                        stats["wins"] += 1
-                        stats["chips_won"] += player_bet
-                    elif player_value == dealer_value: #Player and Dealer Tie
-                        winner = "Push! It's a tie."
-                        stats["pushes"] += 1
-                    else: #Player Loses
-                        winner = "Dealer Wins."
-                        player_chips -= player_bet #player loses bet
-                        stats["losses"] += 1
-                        stats["chips_lost"] += player_bet
-                    game_over = True
+                    if calculate_hand_value(dealer_hand) < 17:
+                        dealer_playing = True
+                        deal_queue.append("dealer")
+                        start_next_deal()
+                    else:
+                        determine_winner()
 
             # Restart after game over
             elif game_over and restart_button.collidepoint(event.pos):
