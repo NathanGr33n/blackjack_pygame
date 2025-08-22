@@ -19,6 +19,7 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 - **Card shadows and borders** for enhanced visual appeal
 - **Hidden dealer card** during player's turn for authentic gameplay
 - **Intuitive button controls** for hit, stand, and betting
+- **Optional strategy hints** showing recommended moves
 
 ### Betting System
 - **Starting bankroll** of $500
@@ -58,9 +59,10 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 1. **Adjust your bet** using the + and - buttons (minimum $25)
 2. **Click "Start"** to deal the cards
 3. **Hit** to draw another card or **Stand** to keep your current hand
-4. **Try to get as close to 21** as possible without going over
-5. **Dealer plays automatically** after you stand
-6. **Win conditions:**
+4. **Toggle `Hint`** to display or hide a basic strategy recommendation
+5. **Try to get as close to 21** as possible without going over
+6. **Dealer plays automatically** after you stand
+7. **Win conditions:**
    - Beat the dealer's hand without busting
    - Dealer busts while you don't
    - Get exactly 21 (Blackjack!)
@@ -107,4 +109,5 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 - [ ] Multiple betting denominations
 - [ ] Sound effects and music
 - [x] Statistics tracking
+- [x] Basic strategy hint system
 - [ ] Multiple deck options
