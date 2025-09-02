@@ -14,6 +14,8 @@ A fully-featured **Blackjack** game built with Python and Pygame, featuring beau
 - **Smart dealer AI** that follows standard casino rules (hits on 16, stands on 17)
 - **Ace handling** with automatic high/low value adjustment
 - **Bust detection** and win/loss conditions
+- **Double Down** - Double your bet and receive exactly one more card
+- **Split Pairs** - Split identical cards into two separate hands with individual bets
 
 ### Visual & Interactive Elements
 - **High-quality card graphics** with realistic card designs
@@ -84,11 +86,13 @@ All other functionality uses Python standard library modules:
 ### 🎮 Controls
 
 **Mouse Controls:**
-- **Left Click**: Interact with buttons (Hit, Stand, Start/Restart, Bet +/-)
+- **Left Click**: Interact with buttons (Hit, Stand, Double, Split, Start/Restart, Bet +/-)
 - **+ Button**: Increase bet by $25
 - **- Button**: Decrease bet by $25
 - **Hit Button**: Draw another card
 - **Stand Button**: Keep current hand and let dealer play
+- **Double Button**: Double your bet and receive exactly one more card
+- **Split Button**: Split a pair into two separate hands (when available)
 - **Start/Restart Button**: Begin new round or restart after game over
 
 **Keyboard Shortcuts:**
@@ -232,10 +236,13 @@ When reporting bugs, please include:
 
 ## 🎲 Future Enhancements
 
-- [ ] Double down functionality
-- [ ] Split pairs option
-- [ ] Multiple betting denominations
-- [ ] Sound effects and music
-- [x] Statistics tracking
-- [x] Basic strategy hint system
-- [ ] Multiple deck options
+- [x] **Double down functionality** - ✅ Completed! Double your bet and receive one card
+- [x] **Split pairs option** - ✅ Completed! Split matching cards into two hands
+- [ ] **Insurance bets** - Side bet when dealer shows an Ace
+- [ ] **Multiple betting denominations** - Different chip values ($5, $10, $50, $100)
+- [ ] **Sound effects and music** - Audio feedback and background music
+- [x] **Statistics tracking** - ✅ Completed! Comprehensive game statistics
+- [x] **Basic strategy hint system** - ✅ Completed! Optimal play recommendations
+- [ ] **Multiple deck options** - Single deck, 4-deck, 6-deck, 8-deck games
+- [ ] **Card animations** - Smooth dealing and movement effects
+- [ ] **Tournament mode** - Compete against AI players or time limits

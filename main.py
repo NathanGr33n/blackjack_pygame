@@ -58,6 +58,8 @@ class Game:
             "busts": 0,
             "chips_won": 0,
             "chips_lost": 0,
+            "double_downs": 0,
+            "splits": 0,
         }
 
         # --------- Game State Flags ---------
@@ -65,6 +67,14 @@ class Game:
         self.player_turn = False       # Whether it's the player's turn
         self.winner = ""               # Result message (if any)
         self.round_started = False     # Whether a round is currently in play
+        
+        # --------- Double Down & Split State ---------
+        self.double_down_used = False  # Whether double down has been used this round
+        self.is_split = False          # Whether player has split their hand
+        self.split_hands = []          # List of split hands when split is active
+        self.split_bets = []           # Bets for each split hand
+        self.active_split_hand = 0     # Which split hand is currently active
+        self.split_hands_complete = [] # Track which split hands are finished
 
         # Deck and hands will be created when a round starts
         self.deck: Deck | None = None
@@ -99,6 +109,8 @@ class Game:
         buttons = self.layout.get_button_layout()
         self.hit_button = buttons['hit']
         self.stand_button = buttons['stand']
+        self.double_button = buttons['double']
+        self.split_button = buttons['split']
         self.hint_button = buttons['hint']
         self.restart_button = buttons['restart']
         self.bet_plus_button = buttons['bet_plus']
@@ -193,6 +205,172 @@ class Game:
             value -= 10
             aces -= 1
         return value
+    
+    # --------- Check Double Down Availability ---------
+    def can_double_down(self) -> bool:
+        """Check if double down is available."""
+        return (
+            not self.double_down_used and  # Haven't already doubled down
+            len(self.player_hand) == 2 and  # First two cards only
+            self.player_chips >= self.player_bet and  # Can afford to double bet
+            not self.is_split  # No double down after split (house rule)
+        )
+    
+    # --------- Check Split Availability ---------
+    def can_split(self) -> bool:
+        """Check if split is available."""
+        return (
+            not self.is_split and  # Haven't already split
+            len(self.player_hand) == 2 and  # First two cards only
+            self.player_hand[0].rank == self.player_hand[1].rank and  # Must be a pair
+            self.player_chips >= self.player_bet  # Can afford second bet
+        )
+    
+    # --------- Execute Double Down ---------
+    def double_down(self) -> None:
+        """Execute double down: double bet, deal one card, end turn."""
+        if not self.can_double_down():
+            return
+        
+        # Double the bet
+        self.player_chips -= self.player_bet
+        self.player_bet *= 2
+        self.double_down_used = True
+        self.stats["double_downs"] += 1
+        
+        # Deal exactly one more card
+        self.player_hand.append(self.deck.deal())
+        
+        # Check for bust
+        if self.calculate_hand_value(self.player_hand) > 21:
+            self.winner = "Bust! Dealer Wins."
+            self.player_chips -= self.player_bet  # Player already lost the doubled bet
+            self.stats["busts"] += 1
+            self.stats["losses"] += 1
+            self.stats["chips_lost"] += self.player_bet
+            self.game_over = True
+            self.player_turn = False
+        else:
+            # End player's turn (no more actions allowed after double down)
+            self.player_turn = False
+            
+            # Play dealer's hand
+            while self.calculate_hand_value(self.dealer_hand) < 17:
+                self.dealer_hand.append(self.deck.deal())
+            
+            # Determine winner
+            player_value = self.calculate_hand_value(self.player_hand)
+            dealer_value = self.calculate_hand_value(self.dealer_hand)
+            
+            if dealer_value > 21 or player_value > dealer_value:
+                self.winner = "Player Wins!"
+                self.player_chips += self.player_bet
+                self.stats["wins"] += 1
+                self.stats["chips_won"] += self.player_bet
+            elif player_value == dealer_value:
+                self.winner = "Push! It's a tie."
+                self.stats["pushes"] += 1
+            else:
+                self.winner = "Dealer Wins."
+                # Player already lost the doubled bet above
+                self.stats["losses"] += 1
+                self.stats["chips_lost"] += self.player_bet
+            
+            self.game_over = True
+    
+    # --------- Execute Split ---------
+    def split_hand(self) -> None:
+        """Execute split: create two hands from pair, deal new cards."""
+        if not self.can_split():
+            return
+        
+        # Deduct bet for second hand
+        self.player_chips -= self.player_bet
+        self.is_split = True
+        self.stats["splits"] += 1
+        
+        # Create two hands from the pair
+        card1, card2 = self.player_hand[0], self.player_hand[1]
+        self.split_hands = [[card1], [card2]]
+        self.split_bets = [self.player_bet, self.player_bet]
+        self.split_hands_complete = [False, False]
+        self.active_split_hand = 0
+        
+        # Deal second card to each hand
+        self.split_hands[0].append(self.deck.deal())
+        self.split_hands[1].append(self.deck.deal())
+        
+        # Set current hand to first split hand
+        self.player_hand = self.split_hands[0]
+        self.player_bet = self.split_bets[0]
+    
+    # --------- Handle Split Hand Completion ---------
+    def complete_split_hand(self) -> None:
+        """Complete current split hand and move to next or finish round."""
+        if not self.is_split:
+            return
+        
+        # Mark current hand as complete
+        self.split_hands_complete[self.active_split_hand] = True
+        
+        # Check if this hand busted
+        if self.calculate_hand_value(self.split_hands[self.active_split_hand]) > 21:
+            self.stats["busts"] += 1
+            self.stats["losses"] += 1
+            self.stats["chips_lost"] += self.split_bets[self.active_split_hand]
+        
+        # Move to next hand if available
+        if self.active_split_hand == 0:
+            self.active_split_hand = 1
+            self.player_hand = self.split_hands[1]
+            self.player_bet = self.split_bets[1]
+        else:
+            # Both hands complete - play dealer and determine winners
+            self.player_turn = False
+            while self.calculate_hand_value(self.dealer_hand) < 17:
+                self.dealer_hand.append(self.deck.deal())
+            
+            self._resolve_split_hands()
+            self.game_over = True
+    
+    # --------- Resolve Split Hand Results ---------
+    def _resolve_split_hands(self) -> None:
+        """Determine winners for each split hand."""
+        dealer_value = self.calculate_hand_value(self.dealer_hand)
+        results = []
+        
+        for i, hand in enumerate(self.split_hands):
+            hand_value = self.calculate_hand_value(hand)
+            bet_amount = self.split_bets[i]
+            
+            if hand_value > 21:
+                # Already handled in complete_split_hand
+                results.append("Bust")
+            elif dealer_value > 21 or hand_value > dealer_value:
+                results.append("Win")
+                self.player_chips += bet_amount
+                self.stats["wins"] += 1
+                self.stats["chips_won"] += bet_amount
+            elif hand_value == dealer_value:
+                results.append("Push")
+                self.stats["pushes"] += 1
+            else:
+                results.append("Loss")
+                self.stats["losses"] += 1
+                self.stats["chips_lost"] += bet_amount
+        
+        # Set winner message
+        if results[0] == results[1]:
+            if results[0] == "Win":
+                self.winner = "Both hands win!"
+            elif results[0] == "Loss":
+                self.winner = "Both hands lose."
+            elif results[0] == "Push":
+                self.winner = "Both hands push."
+            else:  # Both bust
+                self.winner = "Both hands bust!"
+        else:
+            self.winner = f"Hand 1: {results[0]}, Hand 2: {results[1]}"
 
     # --------- Display Text ---------
     def draw_text(self, text, x, y, color=(255, 255, 255)):
@@ -221,13 +399,15 @@ class Game:
     def draw_responsive_stats_panel(self, x, y):
         """Draw statistics panel with responsive sizing."""
         panel_size = self.layout.get_stats_panel_size()
-        panel = pygame.Rect(x, y, panel_size[0], panel_size[1])
+        panel_width = panel_size[0]
+        panel_height = int(panel_size[1] * 1.4)  # Make panel taller for new stats
+        panel = pygame.Rect(x, y, panel_width, panel_height)
         pygame.draw.rect(self.screen, (0, 100, 0), panel)
         pygame.draw.rect(self.screen, (255, 255, 255), panel, 2)
         
         # Scale text spacing based on layout
         padding = int(10 * self.layout.dimensions.scale_factor)
-        line_height = int(20 * self.layout.dimensions.scale_factor)
+        line_height = int(18 * self.layout.dimensions.scale_factor)  # Slightly smaller for more lines
         
         self.draw_text(f"Wins: {self.stats['wins']}", x + padding, y + padding)
         self.draw_text(f"Losses: {self.stats['losses']}", x + padding, y + padding + line_height)
@@ -235,6 +415,8 @@ class Game:
         self.draw_text(f"Busts: {self.stats['busts']}", x + padding, y + padding + line_height * 3)
         self.draw_text(f"Chips Won: {self.stats['chips_won']}", x + padding, y + padding + line_height * 4)
         self.draw_text(f"Chips Lost: {self.stats['chips_lost']}", x + padding, y + padding + line_height * 5)
+        self.draw_text(f"Doubles: {self.stats['double_downs']}", x + padding, y + padding + line_height * 6)
+        self.draw_text(f"Splits: {self.stats['splits']}", x + padding, y + padding + line_height * 7)
 
     # --------- Export Statistics ---------
     def export_stats(self):
@@ -254,6 +436,14 @@ class Game:
         self.game_over = False
         self.winner = ""
         self.round_started = True  # Round has officially started
+        
+        # Reset Double Down and Split state
+        self.double_down_used = False
+        self.is_split = False
+        self.split_hands = []
+        self.split_bets = []
+        self.active_split_hand = 0
+        self.split_hands_complete = []
 
     # --------- Handle a Single Event ---------
     def handle_event(self, event) -> None:
@@ -281,34 +471,48 @@ class Game:
             elif self.round_started and not self.game_over:
                 if self.hit_button.collidepoint(event.pos):
                     self.player_hand.append(self.deck.deal())
+                    if self.is_split:
+                        # Update the active split hand
+                        self.split_hands[self.active_split_hand] = self.player_hand
+                    
                     if self.calculate_hand_value(self.player_hand) > 21:
-                        self.winner = "Bust! Dealer Wins."
-                        self.player_chips -= self.player_bet
-                        self.stats["busts"] += 1
-                        self.stats["losses"] += 1
-                        self.stats["chips_lost"] += self.player_bet
-                        self.game_over = True
-                        self.player_turn = False
+                        if self.is_split:
+                            self.complete_split_hand()
+                        else:
+                            self.winner = "Bust! Dealer Wins."
+                            self.player_chips -= self.player_bet
+                            self.stats["busts"] += 1
+                            self.stats["losses"] += 1
+                            self.stats["chips_lost"] += self.player_bet
+                            self.game_over = True
+                            self.player_turn = False
                 elif self.stand_button.collidepoint(event.pos):
-                    self.player_turn = False
-                    while self.calculate_hand_value(self.dealer_hand) < 17:
-                        self.dealer_hand.append(self.deck.deal())
-                    player_value = self.calculate_hand_value(self.player_hand)
-                    dealer_value = self.calculate_hand_value(self.dealer_hand)
-                    if dealer_value > 21 or player_value > dealer_value:
-                        self.winner = "Player Wins!"
-                        self.player_chips += self.player_bet
-                        self.stats["wins"] += 1
-                        self.stats["chips_won"] += self.player_bet
-                    elif player_value == dealer_value:
-                        self.winner = "Push! It's a tie."
-                        self.stats["pushes"] += 1
+                    if self.is_split:
+                        self.complete_split_hand()
                     else:
-                        self.winner = "Dealer Wins."
-                        self.player_chips -= self.player_bet
-                        self.stats["losses"] += 1
-                        self.stats["chips_lost"] += self.player_bet
-                    self.game_over = True
+                        self.player_turn = False
+                        while self.calculate_hand_value(self.dealer_hand) < 17:
+                            self.dealer_hand.append(self.deck.deal())
+                        player_value = self.calculate_hand_value(self.player_hand)
+                        dealer_value = self.calculate_hand_value(self.dealer_hand)
+                        if dealer_value > 21 or player_value > dealer_value:
+                            self.winner = "Player Wins!"
+                            self.player_chips += self.player_bet
+                            self.stats["wins"] += 1
+                            self.stats["chips_won"] += self.player_bet
+                        elif player_value == dealer_value:
+                            self.winner = "Push! It's a tie."
+                            self.stats["pushes"] += 1
+                        else:
+                            self.winner = "Dealer Wins."
+                            self.player_chips -= self.player_bet
+                            self.stats["losses"] += 1
+                            self.stats["chips_lost"] += self.player_bet
+                        self.game_over = True
+                elif self.double_button.collidepoint(event.pos) and self.can_double_down():
+                    self.double_down()
+                elif self.split_button.collidepoint(event.pos) and self.can_split():
+                    self.split_hand()
             elif self.game_over and self.restart_button.collidepoint(event.pos):
                 if self.player_chips >= 25:
                     self.round_started = False
@@ -326,20 +530,52 @@ class Game:
 
         # Draw card hands using responsive positioning
         if self.round_started:
-            self.draw_responsive_hand(self.player_hand, 'player', hide_first=False)
+            if self.is_split:
+                # Draw both split hands
+                self.draw_responsive_hand(self.split_hands[0], 'player_split_1', hide_first=False)
+                self.draw_responsive_hand(self.split_hands[1], 'player_split_2', hide_first=False)
+                
+                # Highlight active hand with border
+                if not self.game_over:
+                    hand_positions = self.layout.get_hand_positions()
+                    if self.active_split_hand == 0:
+                        pos = hand_positions['player_split_1']
+                    else:
+                        pos = hand_positions['player_split_2']
+                    
+                    # Draw active hand indicator
+                    card_size = self.layout.get_card_size()
+                    border_rect = pygame.Rect(pos[0] - 5, pos[1] - 5, card_size[0] + 10, card_size[1] + 10)
+                    pygame.draw.rect(self.screen, (255, 255, 0), border_rect, 3)
+            else:
+                self.draw_responsive_hand(self.player_hand, 'player', hide_first=False)
+            
             self.draw_responsive_hand(self.dealer_hand, 'dealer', hide_first=(self.player_turn and not self.game_over))
 
         # Draw hand values using responsive positioning
         if self.round_started:
-            player_value = self.calculate_hand_value(self.player_hand)
-            dealer_value = self.calculate_hand_value(self.dealer_hand if not self.player_turn else self.dealer_hand[1:])
-            
-            player_pos = text_positions['player_score']
-            self.draw_text(f"Player: {player_value}", player_pos[0], player_pos[1])
+            if self.is_split:
+                # Draw values for both split hands
+                hand1_value = self.calculate_hand_value(self.split_hands[0])
+                hand2_value = self.calculate_hand_value(self.split_hands[1])
+                
+                player_pos = text_positions['player_score']
+                self.draw_text(f"Hand 1: {hand1_value}", player_pos[0], player_pos[1])
+                self.draw_text(f"Hand 2: {hand2_value}", player_pos[0] + 150, player_pos[1])
+                
+                if not self.game_over:
+                    # Show which hand is active
+                    active_text = f"Playing Hand {self.active_split_hand + 1}"
+                    self.draw_text(active_text, player_pos[0], player_pos[1] - 25, (255, 255, 0))
+            else:
+                player_value = self.calculate_hand_value(self.player_hand)
+                player_pos = text_positions['player_score']
+                self.draw_text(f"Player: {player_value}", player_pos[0], player_pos[1])
             
             if not self.player_turn or self.game_over:
+                dealer_value = self.calculate_hand_value(self.dealer_hand)
                 dealer_pos = text_positions['dealer_score']
-                self.draw_text(f"Dealer: {self.calculate_hand_value(self.dealer_hand)}", dealer_pos[0], dealer_pos[1])
+                self.draw_text(f"Dealer: {dealer_value}", dealer_pos[0], dealer_pos[1])
 
         # Draw chips and bet info using responsive positioning
         chips_pos = text_positions['chips']
@@ -371,6 +607,16 @@ class Game:
             stand_outline = suggestion == "Stand"
             self.draw_button("Hit", self.hit_button, (200, 200, 200), outline=hit_outline)
             self.draw_button("Stand", self.stand_button, (200, 200, 200), outline=stand_outline)
+            
+            # Draw Double Down button if available
+            if self.can_double_down():
+                double_outline = suggestion == "Double"
+                self.draw_button("Double", self.double_button, (255, 200, 100), outline=double_outline)
+            
+            # Draw Split button if available
+            if self.can_split():
+                split_outline = suggestion == "Split"
+                self.draw_button("Split", self.split_button, (100, 255, 200), outline=split_outline)
             
             # Draw hint text using responsive positioning
             if suggestion:

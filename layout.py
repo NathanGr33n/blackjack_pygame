@@ -148,10 +148,12 @@ class LayoutManager:
         
         # Calculate button positions as percentages of screen
         buttons = {
-            'hit': self.get_rect(0.125, 0.883, button_width, button_height),      # ~100, 530
-            'stand': self.get_rect(0.3125, 0.883, button_width, button_height),   # ~250, 530
-            'hint': self.get_rect(0.475, 0.883, button_width, button_height),     # ~380, 530
-            'restart': self.get_rect(0.625, 0.883, 120, button_height),           # ~500, 530
+            'hit': self.get_rect(0.0625, 0.883, button_width, button_height),      # ~50, 530
+            'stand': self.get_rect(0.1875, 0.883, button_width, button_height),    # ~150, 530
+            'double': self.get_rect(0.3125, 0.883, button_width, button_height),   # ~250, 530
+            'split': self.get_rect(0.4375, 0.883, button_width, button_height),    # ~350, 530
+            'hint': self.get_rect(0.5625, 0.883, button_width, button_height),     # ~450, 530
+            'restart': self.get_rect(0.6875, 0.883, 120, button_height),           # ~550, 530
             'bet_plus': self.get_rect(0.7875, 0.15, small_button_width, small_button_height),  # ~630, 90
             'bet_minus': self.get_rect(0.7125, 0.15, small_button_width, small_button_height), # ~570, 90
         }
@@ -174,6 +176,8 @@ class LayoutManager:
         """Get card hand positions using responsive layout."""
         return {
             'player': self.get_position(0.125, 0.667),            # ~100, 400
+            'player_split_1': self.get_position(0.125, 0.667),    # ~100, 400 (left hand)
+            'player_split_2': self.get_position(0.45, 0.667),     # ~360, 400 (right hand)
             'dealer': self.get_position(0.125, 0.167),            # ~100, 100
         }
     
