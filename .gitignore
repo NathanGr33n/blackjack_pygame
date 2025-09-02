@@ -1,1 +1,91 @@
+# Personal and temporary files
 WARP.md
+
+# Statistics and game data (personal information)
+stats.txt
+stats.json
+game_data.json
+*.stats
+*.save
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PYMANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.vs/
+
+# Logs and debug files
+*.log
+debug.txt
+error.log
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Configuration files with personal data
+config.ini
+settings.json
+user_config.*
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Screenshots and recordings (may contain personal gameplay)
+screenshots/
+recordings/
+*.png
+*.jpg
+*.gif
+*.mp4
+
+# Exception: Keep asset images
+!assets/**/*.png
+!assets/**/*.jpg
+!assets/**/*.gif
