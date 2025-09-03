@@ -20,6 +20,8 @@ import pygame                 # Game engine
 from deck import Deck         # Custom Deck and Card classes
 from basic_strategy import suggest_move
 from layout import LayoutManager  # Responsive layout system
+from animation_manager import CardAnimationManager  # Animation system
+from animation_config import AnimationConfigManager  # Animation configuration
 
 
 class Game:
@@ -34,6 +36,12 @@ class Game:
         
         # --------- Initialize Layout Manager ---------
         self.layout = LayoutManager(self.WIDTH, self.HEIGHT)
+        
+        # --------- Initialize Animation System ---------
+        self.animation_config = AnimationConfigManager()
+        self.card_animator = CardAnimationManager(self.layout, self.animation_config.get_current_config())
+        self.card_animator.initialize_positions()
+        self.animations_enabled = True
         
         # --------- Initialize Font (will be scaled by layout) ---------
         base_font_size = 24
@@ -128,6 +136,10 @@ class Game:
             
             card_size = self.layout.get_card_size()
             self.card_back = pygame.transform.scale(self.card_back_original, card_size)
+        
+        # Update animation manager with new layout
+        if hasattr(self, 'card_animator'):
+            self.card_animator.update_layout(self.layout)
 
     # --------- Load and Scale Card Image ---------
     def load_png_card(self, path: str, size: tuple[int, int] = (80, 120)):
@@ -429,9 +441,15 @@ class Game:
     # --------- Reset Game State ---------
     def reset_game(self) -> None:
         """Prepares the next round, keeping chips and bet."""
+        # Clear previous animations
+        self.card_animator.clear_all_animations()
+        
+        # Create new deck and deal cards
         self.deck = Deck()
         self.player_hand = [self.deck.deal(), self.deck.deal()]
         self.dealer_hand = [self.deck.deal(), self.deck.deal()]
+        
+        # Reset game state
         self.player_turn = True
         self.game_over = False
         self.winner = ""
@@ -444,6 +462,19 @@ class Game:
         self.split_bets = []
         self.active_split_hand = 0
         self.split_hands_complete = []
+        
+        # Start dealing animation if animations are enabled
+        if self.animations_enabled:
+            def on_deal_complete():
+                """Called when initial dealing animation completes."""
+                # Cards have been dealt, player can now act
+                pass
+            
+            self.card_animator.deal_initial_cards(
+                self.player_hand, 
+                self.dealer_hand, 
+                callback=on_deal_complete
+            )
 
     # --------- Handle a Single Event ---------
     def handle_event(self, event) -> None:
@@ -525,11 +556,20 @@ class Game:
         self.screen.fill((0, 128, 0))  # Green felt background
         self.tick += 1
         
+        # Update animation system
+        if self.animations_enabled:
+            self.card_animator.update()
+        
         # Get responsive text positions
         text_positions = self.layout.get_text_positions()
 
-        # Draw card hands using responsive positioning
-        if self.round_started:
+        # Draw animated cards if animations are enabled, otherwise fall back to static drawing
+        if self.animations_enabled and self.card_animator.has_animations():
+            # Render animated cards
+            card_size = self.layout.get_card_size()
+            self.card_animator.render_animated_cards(self.screen, card_size)
+        elif self.round_started:
+            # Fallback to static drawing when no animations are active
             if self.is_split:
                 # Draw both split hands
                 self.draw_responsive_hand(self.split_hands[0], 'player_split_1', hide_first=False)
